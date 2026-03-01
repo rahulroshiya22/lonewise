@@ -24,15 +24,8 @@ from flask_jwt_extended import (
     jwt_required,
 )
 from flask_sqlalchemy import SQLAlchemy
-from google.oauth2 import id_token
-from google.auth.transport import requests as google_requests
 
 import glob
-
-GOOGLE_CLIENT_ID = os.environ.get(
-    "GOOGLE_CLIENT_ID",
-    ""  # Set your Google OAuth Client ID here or in env
-)
 
 # ─── App Setup ───────────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -250,44 +243,6 @@ def me():
         return jsonify({"error": "User not found"}), 404
     return jsonify(user.to_dict())
 
-
-@app.route("/api/auth/google", methods=["POST"])
-def google_login():
-    """Verify Google ID token, create user if needed, return JWT."""
-    data = request.get_json(force=True) or {}
-    credential = data.get("credential", "")
-    if not credential:
-        return jsonify({"error": "No Google credential provided"}), 400
-
-    try:
-        idinfo = id_token.verify_oauth2_token(
-            credential, google_requests.Request(), GOOGLE_CLIENT_ID
-        )
-    except Exception as e:
-        return jsonify({"error": f"Invalid Google token: {str(e)}"}), 401
-
-    email   = idinfo.get("email", "").lower()
-    name    = idinfo.get("name", "")
-    picture = idinfo.get("picture", "")
-
-    if not email:
-        return jsonify({"error": "Google account has no email"}), 400
-
-    user = User.query.filter_by(email=email).first()
-    if user:
-        # Update picture on each login
-        if picture and user.picture != picture:
-            user.picture = picture
-            db.session.commit()
-    else:
-        # Auto-create user from Google profile
-        dummy_hash = bcrypt.hashpw(os.urandom(32), bcrypt.gensalt()).decode()
-        user = User(name=name, email=email, password_hash=dummy_hash, picture=picture)
-        db.session.add(user)
-        db.session.commit()
-
-    token = create_access_token(identity=str(user.id))
-    return jsonify({"token": token, "user": user.to_dict()})
 
 
 # ─── Predict ──────────────────────────────────────────────────────────────────
