@@ -52,20 +52,7 @@ jwt = JWTManager(app)
 #         }
 #     },
 # )
-CORS(
-    app,
-    resources={
-        r"/*": {
-            "origins": [
-                "http://localhost:5173",
-                "http://localhost:3000",
-                "https://beamish-nougat-d3e0e3.netlify.app",
-            ]
-        }
-    },
-    supports_credentials=True
-)
-
+CORS(app)
 
 # ─── Database Models ──────────────────────────────────────────────────────────
 class User(db.Model):
