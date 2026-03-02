@@ -24,7 +24,6 @@ from flask_jwt_extended import (
     jwt_required,
 )
 from flask_sqlalchemy import SQLAlchemy
-
 import glob
 
 # ─── App Setup ───────────────────────────────────────────────────────────────
@@ -244,7 +243,6 @@ def me():
     return jsonify(user.to_dict())
 
 
-
 # ─── Predict ──────────────────────────────────────────────────────────────────
 @app.route("/api/predict", methods=["POST"])
 @jwt_required()
@@ -370,6 +368,10 @@ def method_not_allowed(_):
 @app.errorhandler(422)
 def unprocessable(_):
     return jsonify({"error": "Invalid or missing JWT token"}), 422
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    return jsonify({"error": f"Internal Server Error: {str(e)}"}), 500
 
 
 # ─── Entry ────────────────────────────────────────────────────────────────────
