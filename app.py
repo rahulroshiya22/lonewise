@@ -144,23 +144,41 @@ def load_merged_model():
     
     if parts:
         print(f"📦 Found {len(parts)} model parts. Merging...")
-        with open(temp_full, "wb") as outfile:
-            for part in parts:
-                with open(part, "rb") as infile:
-                    outfile.write(infile.read())
+        if not os.path.exists(temp_full):
+            import shutil
+            with open(temp_full, "wb") as outfile:
+                for part in parts:
+                    with open(part, "rb") as infile:
+                        shutil.copyfileobj(infile, outfile, length=1024*1024*8) # 8MB chunks to save RAM
         
-        with open(temp_full, "rb") as f:
-            loaded_model = pickle.load(f)
+        # Free memory before unpickling
+        import gc
+        gc.collect()
         
-        # Clean up temporary file to save cloud disk space
-        if os.path.exists(temp_full):
-            os.remove(temp_full)
-        return loaded_model
+        import joblib
+        try:
+            # Memory map to drastically reduce RAM usage for numpy arrays in sklearn models
+            loaded_model = joblib.load(temp_full, mmap_mode='r')
+            print("✅ Successfully loaded model using Joblib mmap!")
+            return loaded_model
+        except Exception as e:
+            print(f"⚠️ Joblib mmap failed ({e}), falling back to RAM-heavy pickle load...")
+            with open(temp_full, "rb") as f:
+                loaded_model = pickle.load(f)
+            
+            # Since mmap failed, it's fully in RAM, so we can clean up disk footprint
+            if os.path.exists(temp_full):
+                os.remove(temp_full)
+            return loaded_model
     
     # If no parts, try to load single file (local dev)
     elif os.path.exists(base_name):
-        with open(base_name, "rb") as f:
-            return pickle.load(f)
+        import joblib
+        try:
+            return joblib.load(base_name, mmap_mode='r')
+        except Exception:
+            with open(base_name, "rb") as f:
+                return pickle.load(f)
     
     return None
 
